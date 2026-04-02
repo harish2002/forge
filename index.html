@@ -884,7 +884,11 @@ textarea.input{resize:vertical;min-height:60px}
     <div class="modal-handle"></div>
     <div class="modal-title" id="detailTitle">WORKOUT</div>
     <div id="detailContent"></div>
-    <div style="display:flex;gap:8px;margin-top:16px">
+    <button class="btn btn-green btn-block" style="margin-top:16px" onclick="saveWorkoutAsTemplate()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      SAVE AS TEMPLATE
+    </button>
+    <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-secondary btn-block" onclick="closeModal('workoutDetailModal')">Close</button>
       <button class="btn btn-danger btn-sm" onclick="deleteWorkoutFromDetail()">Delete</button>
     </div>
@@ -1692,6 +1696,22 @@ function showWorkoutDetail(wId){
 }
 function deleteWorkoutFromDetail(){if(!detailWorkoutId||!confirm('Delete?'))return;
   LS.set('workouts',getWorkouts().filter(w=>w.id!==detailWorkoutId));closeModal('workoutDetailModal');renderHistory()}
+
+function saveWorkoutAsTemplate(){
+  const w=getWorkouts().find(x=>x.id===detailWorkoutId);if(!w)return;
+  const name=prompt('Template name:',w.name);if(!name)return;
+  const exercises=w.exercises.map(ex=>({
+    exerciseId:ex.exerciseId,
+    name:ex.name,
+    sets:ex.sets.filter(s=>!s.isWarmup).length||3
+  }));
+  const t=getTemplates();
+  t.push({id:'t_'+Date.now(),name,exercises});
+  LS.set('templates',t);
+  if(cUser)syncUserData();
+  closeModal('workoutDetailModal');
+  alert(`"${name}" saved as template!`);
+}
 
 // ══════════════════════════════════════════
 //  STATS
