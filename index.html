@@ -1292,11 +1292,13 @@ function renderExercises(){
         padding:3px 8px;border-radius:10px;background:${isPlates?'var(--amber-dim)':'var(--cyan-dim)'};
         color:${unitColor};border:1px solid ${isPlates?'rgba(255,195,64,.2)':'rgba(0,212,255,.2)'};
         cursor:pointer;transition:all .2s;white-space:nowrap" title="Tap to switch unit">${unitLabel} ⇄</button>
-      <span>REPS</span><span>RPE</span><span></span></div>`;
+      <span>REPS</span><span style="color:var(--purple);font-size:.6rem;font-weight:700">PART</span><span></span></div>`;
     ex.sets.forEach((s,si)=>{
       const prevSet=prev&&prev[si]?prev[si]:null;
       const prevUnit=prevSet?.weightUnit==='plates'?'PLT':'';
-      const prevStr=prevSet?(prevUnit?`${prevSet.weight}PLT×${prevSet.reps}`:`${prevSet.weight}×${prevSet.reps}`):'--';
+      const prevPart=prevSet?.partial?`+${prevSet.partial}`:'';
+      const prevBase=prevUnit?`${prevSet.weight}PLT×${prevSet.reps}${prevPart}`:`${prevSet.weight}×${prevSet.reps}${prevPart}`;
+      const prevStr=prevSet?prevBase:'--';
       const wImproved=!isPlates&&prevSet&&s.done&&parseFloat(s.weight)>parseFloat(prevSet.weight);
       const rImproved=prevSet&&s.done&&parseFloat(s.reps)>parseFloat(prevSet.reps)&&(isPlates||parseFloat(s.weight)>=parseFloat(prevSet.weight));
       if(s.done&&!s.isWarmup){completedSets++;if(!isPlates)totalVol+=(parseFloat(s.weight)||0)*(parseFloat(s.reps)||0)}
@@ -1310,13 +1312,10 @@ function renderExercises(){
           onchange="updateSet(${ei},${si},'weight',this.value)" inputmode="${isPlates?'numeric':'decimal'}">
         <input type="number" class="set-input ${rImproved?'improved':''}" value="${s.reps}" placeholder="0"
           onchange="updateSet(${ei},${si},'reps',this.value)" inputmode="numeric">
-        <select class="rpe-select" onchange="updateSet(${ei},${si},'rpe',this.value)">
-          <option value="">-</option><option value="6" ${s.rpe==='6'?'selected':''}>6</option>
-          <option value="7" ${s.rpe==='7'?'selected':''}>7</option><option value="7.5" ${s.rpe==='7.5'?'selected':''}>7.5</option>
-          <option value="8" ${s.rpe==='8'?'selected':''}>8</option><option value="8.5" ${s.rpe==='8.5'?'selected':''}>8.5</option>
-          <option value="9" ${s.rpe==='9'?'selected':''}>9</option><option value="9.5" ${s.rpe==='9.5'?'selected':''}>9.5</option>
-          <option value="10" ${s.rpe==='10'?'selected':''}>10</option>
-        </select>
+        <input type="number" class="set-input" value="${s.partial||''}" placeholder="+0"
+          style="color:var(--purple);border-color:${s.partial?'rgba(167,139,250,.3)':'transparent'};font-size:.78rem"
+          onchange="updateSet(${ei},${si},'partial',this.value||'')" inputmode="numeric"
+          title="Partial reps">
         <div class="set-check ${s.done?'done':''}" onclick="completeSet(${ei},${si})">
           <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
@@ -1706,7 +1705,7 @@ function showWorkoutDetail(wId){
       const rpe=s.rpe?` <span style="color:var(--amber);font-size:.72rem">@${s.rpe}</span>`:'';
       html+=`<div style="display:flex;gap:10px;padding:3px 0;font-size:.82rem;color:var(--text-1)">
         <span style="color:var(--text-2);width:18px;font-size:.75rem">${i+1}</span>
-        <span style="font-family:var(--font-mono);${s.weightUnit==='plates'?'color:var(--amber)':''}">${s.weight} ${s.weightUnit==='plates'?'PLT':'kg'} x ${s.reps}${rpe}</span>${pr}${wu}
+        <span style="font-family:var(--font-mono);${s.weightUnit==='plates'?'color:var(--amber)':''}">${s.weight} ${s.weightUnit==='plates'?'PLT':'kg'} × ${s.reps}${s.partial?`<span style="color:var(--purple)">+${s.partial}</span>`:''}</span>${rpe}${pr}${wu}
       </div>`;
     });html+=`</div>`;
   });
