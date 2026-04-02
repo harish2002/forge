@@ -1157,6 +1157,22 @@ const DEFAULT_EXERCISES=[
   {id:'russian_twist',name:'Russian Twist',muscle:'Core'},
   {id:'hanging_raise',name:'Hanging Knee Raise',muscle:'Core'},
   {id:'pallof',name:'Pallof Press',muscle:'Core'},
+  // Cardio
+  {id:'running',name:'Running',muscle:'Cardio'},
+  {id:'treadmill',name:'Treadmill',muscle:'Cardio'},
+  {id:'sprint',name:'Sprint Intervals',muscle:'Cardio'},
+  {id:'cycling',name:'Cycling / Stationary Bike',muscle:'Cardio'},
+  {id:'rowing_machine',name:'Rowing Machine',muscle:'Cardio'},
+  {id:'jump_rope',name:'Jump Rope',muscle:'Cardio'},
+  {id:'burpee',name:'Burpees',muscle:'Cardio'},
+  {id:'mountain_climber',name:'Mountain Climbers',muscle:'Cardio'},
+  {id:'high_knees',name:'High Knees',muscle:'Cardio'},
+  {id:'box_jump',name:'Box Jumps',muscle:'Cardio'},
+  {id:'jumping_jack',name:'Jumping Jacks',muscle:'Cardio'},
+  {id:'battle_rope',name:'Battle Ropes',muscle:'Cardio'},
+  {id:'sled_push',name:'Sled Push',muscle:'Cardio'},
+  {id:'stair_climber',name:'Stair Climber',muscle:'Cardio'},
+  {id:'elliptical',name:'Elliptical',muscle:'Cardio'},
 ];
 
 const DEFAULT_TEMPLATES=[
@@ -1198,9 +1214,36 @@ const DEFAULT_TEMPLATES=[
     {exerciseId:'bb_row',name:'Barbell Row',sets:3},
     {exerciseId:'ohp',name:'Overhead Press',sets:3},
     {exerciseId:'rdl',name:'Romanian Deadlift',sets:3}]},
+  {id:'t_core',name:'Core Blast',exercises:[
+    {exerciseId:'plank',name:'Plank',sets:3},
+    {exerciseId:'hanging_raise',name:'Hanging Knee Raise',sets:3},
+    {exerciseId:'ab_wheel',name:'Ab Wheel Rollout',sets:3},
+    {exerciseId:'cable_crunch',name:'Cable Crunch',sets:3},
+    {exerciseId:'russian_twist',name:'Russian Twist',sets:3},
+    {exerciseId:'pallof',name:'Pallof Press',sets:3}]},
+  {id:'t_hiit',name:'HIIT Blast',exercises:[
+    {exerciseId:'burpee',name:'Burpees',sets:4},
+    {exerciseId:'mountain_climber',name:'Mountain Climbers',sets:4},
+    {exerciseId:'jump_rope',name:'Jump Rope',sets:4},
+    {exerciseId:'high_knees',name:'High Knees',sets:4},
+    {exerciseId:'box_jump',name:'Box Jumps',sets:3},
+    {exerciseId:'battle_rope',name:'Battle Ropes',sets:3}]},
+  {id:'t_run',name:'Steady State Run',exercises:[
+    {exerciseId:'treadmill',name:'Treadmill',sets:1},
+    {exerciseId:'running',name:'Running',sets:1}]},
+  {id:'t_sprint',name:'Sprint Intervals',exercises:[
+    {exerciseId:'sprint',name:'Sprint Intervals',sets:6},
+    {exerciseId:'high_knees',name:'High Knees',sets:3}]},
+  {id:'t_cardio_core',name:'Cardio + Core',exercises:[
+    {exerciseId:'jump_rope',name:'Jump Rope',sets:3},
+    {exerciseId:'burpee',name:'Burpees',sets:3},
+    {exerciseId:'mountain_climber',name:'Mountain Climbers',sets:3},
+    {exerciseId:'plank',name:'Plank',sets:3},
+    {exerciseId:'hanging_raise',name:'Hanging Knee Raise',sets:3},
+    {exerciseId:'ab_wheel',name:'Ab Wheel Rollout',sets:3}]},
 ];
 
-const MUSCLE_GROUPS=['Chest','Back','Shoulders','Arms','Legs','Core'];
+const MUSCLE_GROUPS=['Chest','Back','Shoulders','Arms','Legs','Core','Cardio'];
 const BENCHMARKS=[
   {exerciseId:'bb_bench',name:'Bench Press',target:88,unit:'kg',note:'1x BW'},
   {exerciseId:'squat',name:'Squat',target:132,unit:'kg',note:'1.5x BW'},
@@ -1209,8 +1252,24 @@ const BENCHMARKS=[
   {exerciseId:'bb_row',name:'Row',target:88,unit:'kg',note:'1x BW'},
 ];
 
-function getExercises(){let e=LS.get('exercises');if(!e){e=[...DEFAULT_EXERCISES];LS.set('exercises',e)}return e}
-function getTemplates(){let t=LS.get('templates');if(!t){t=[...DEFAULT_TEMPLATES];LS.set('templates',t)}return t}
+function getExercises(){
+  let e=LS.get('exercises');
+  if(!e){e=[...DEFAULT_EXERCISES];LS.set('exercises',e);return e}
+  // Merge any new default exercises not yet in localStorage
+  const ids=new Set(e.map(x=>x.id));
+  const added=DEFAULT_EXERCISES.filter(x=>!ids.has(x.id));
+  if(added.length){e=[...e,...added];LS.set('exercises',e)}
+  return e;
+}
+function getTemplates(){
+  let t=LS.get('templates');
+  if(!t){t=[...DEFAULT_TEMPLATES];LS.set('templates',t);return t}
+  // Merge any new default templates not yet in localStorage
+  const ids=new Set(t.map(x=>x.id));
+  const added=DEFAULT_TEMPLATES.filter(x=>!ids.has(x.id));
+  if(added.length){t=[...t,...added];LS.set('templates',t)}
+  return t;
+}
 function getWorkouts(){return LS.get('workouts',[])}
 function getPRs(){return LS.get('prs',{})}
 function getBodyWeights(){return LS.get('bodyWeights',[])}
@@ -1285,14 +1344,21 @@ function renderExercises(){
     card.style.animationDelay=(ei*0.04)+'s';
     let superBadge=ex.supersetWith!==null?'<span class="superset-badge">SS</span>':'';
     const isPlates = ex.weightUnit === 'plates';
+    const isCardio = ex.muscle === 'Cardio';
     const unitLabel = isPlates ? 'PLT' : 'KG';
     const unitColor = isPlates ? 'var(--amber)' : 'var(--cyan)';
-    let setsHtml=`<div class="set-header"><span>#</span><span>PREV</span>
-      <button onclick="toggleWeightUnit(${ei})" style="font-size:.6rem;font-weight:800;letter-spacing:.08em;
-        padding:3px 8px;border-radius:10px;background:${isPlates?'var(--amber-dim)':'var(--cyan-dim)'};
-        color:${unitColor};border:1px solid ${isPlates?'rgba(255,195,64,.2)':'rgba(0,212,255,.2)'};
-        cursor:pointer;transition:all .2s;white-space:nowrap" title="Tap to switch unit">${unitLabel} ⇄</button>
-      <span>REPS</span><span style="color:var(--purple);font-size:.6rem;font-weight:700">PART</span><span></span></div>`;
+    // Cardio columns: MIN (duration) | RDS (rounds/laps) | skip partial
+    const weightHeader = isCardio
+      ? `<span style="font-size:.6rem;font-weight:800;color:var(--amber);letter-spacing:.08em">⏱ MIN</span>`
+      : `<button onclick="toggleWeightUnit(${ei})" style="font-size:.6rem;font-weight:800;letter-spacing:.08em;
+          padding:3px 8px;border-radius:10px;background:${isPlates?'var(--amber-dim)':'var(--cyan-dim)'};
+          color:${unitColor};border:1px solid ${isPlates?'rgba(255,195,64,.2)':'rgba(0,212,255,.2)'};
+          cursor:pointer;transition:all .2s;white-space:nowrap" title="Tap to switch unit">${unitLabel} ⇄</button>`;
+    const repsHeader = isCardio
+      ? `<span style="font-size:.6rem;font-weight:700;color:var(--green)">RDS</span>`
+      : `<span>REPS</span>`;
+    const partHeader = isCardio ? `<span></span>` : `<span style="color:var(--purple);font-size:.6rem;font-weight:700">PART</span>`;
+    let setsHtml=`<div class="set-header"><span>#</span><span>PREV</span>${weightHeader}${repsHeader}${partHeader}<span></span></div>`;
     ex.sets.forEach((s,si)=>{
       const prevSet=prev&&prev[si]?prev[si]:null;
       const prevUnit=prevSet?.weightUnit==='plates'?'PLT':'';
@@ -1303,19 +1369,27 @@ function renderExercises(){
       const rImproved=prevSet&&s.done&&parseFloat(s.reps)>parseFloat(prevSet.reps)&&(isPlates||parseFloat(s.weight)>=parseFloat(prevSet.weight));
       if(s.done&&!s.isWarmup){completedSets++;if(!isPlates)totalVol+=(parseFloat(s.weight)||0)*(parseFloat(s.reps)||0)}
       const warmupCls=s.isWarmup?' style="opacity:.6"':'';
+      const weightInput = isCardio
+        ? `<input type="number" class="set-input ${wImproved?'improved':''}" value="${s.weight}"
+            placeholder="min" style="color:var(--amber);border-color:rgba(255,195,64,.25)"
+            onchange="updateSet(${ei},${si},'weight',this.value)" inputmode="decimal" title="Duration in minutes">`
+        : `<input type="number" class="set-input ${wImproved?'improved':''}" value="${s.weight}"
+            placeholder="${isPlates?'# PLT':'0'}"
+            style="${isPlates?'color:var(--amber);border-color:rgba(255,195,64,.25)':''}"
+            onchange="updateSet(${ei},${si},'weight',this.value)" inputmode="${isPlates?'numeric':'decimal'}">`;
+      const repsInput = isCardio
+        ? `<input type="number" class="set-input ${rImproved?'improved':''}" value="${s.reps}"
+            placeholder="rds" style="color:var(--green)" onchange="updateSet(${ei},${si},'reps',this.value)" inputmode="numeric" title="Rounds or laps">`
+        : `<input type="number" class="set-input ${rImproved?'improved':''}" value="${s.reps}" placeholder="0"
+            onchange="updateSet(${ei},${si},'reps',this.value)" inputmode="numeric">`;
+      const partInput = isCardio ? `<span></span>` : `<input type="number" class="set-input" value="${s.partial||''}" placeholder="+0"
+          style="color:var(--purple);border-color:${s.partial?'rgba(167,139,250,.3)':'transparent'};font-size:.78rem"
+          onchange="updateSet(${ei},${si},'partial',this.value||'')" inputmode="numeric"
+          title="Partial reps">`;
       setsHtml+=`<div class="set-row"${warmupCls}>
         <span class="set-num">${s.isWarmup?'W':si+1}</span>
         <span style="font-size:.62rem;color:var(--text-2);text-align:center;font-family:var(--font-mono);line-height:1.2">${prevStr}</span>
-        <input type="number" class="set-input ${wImproved?'improved':''}" value="${s.weight}"
-          placeholder="${isPlates?'# PLT':'0'}"
-          style="${isPlates?'color:var(--amber);border-color:rgba(255,195,64,.25)':''}"
-          onchange="updateSet(${ei},${si},'weight',this.value)" inputmode="${isPlates?'numeric':'decimal'}">
-        <input type="number" class="set-input ${rImproved?'improved':''}" value="${s.reps}" placeholder="0"
-          onchange="updateSet(${ei},${si},'reps',this.value)" inputmode="numeric">
-        <input type="number" class="set-input" value="${s.partial||''}" placeholder="+0"
-          style="color:var(--purple);border-color:${s.partial?'rgba(167,139,250,.3)':'transparent'};font-size:.78rem"
-          onchange="updateSet(${ei},${si},'partial',this.value||'')" inputmode="numeric"
-          title="Partial reps">
+        ${weightInput}${repsInput}${partInput}
         <div class="set-check ${s.done?'done':''}" onclick="completeSet(${ei},${si})">
           <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
@@ -1516,11 +1590,28 @@ function playPRSound(){try{const ctx=new(window.AudioContext||window.webkitAudio
 //  TEMPLATES
 // ══════════════════════════════════════════
 function renderTemplates(){
-  document.getElementById('templateGrid').innerHTML=getTemplates().map(t=>
-    `<div class="template-card glass" onclick="startFromTemplate('${t.id}')">
-      <h4>${t.name}</h4><p>${t.exercises.map(e=>e.name).join(', ')}</p>
-      <div class="template-count">${t.exercises.length} exercises</div>
-    </div>`).join('');
+  const cardioIds=new Set(['t_hiit','t_run','t_sprint','t_cardio_core']);
+  const coreIds=new Set(['t_core']);
+  const cardioExIds=new Set(['running','treadmill','sprint','cycling','rowing_machine','jump_rope','burpee','mountain_climber','high_knees','box_jump','jumping_jack','battle_rope','sled_push','stair_climber','elliptical']);
+  const tpls=getTemplates();
+  // Categorise: Strength = default gym templates; Core; Cardio
+  const strength=[],core=[],cardio=[];
+  tpls.forEach(t=>{
+    if(cardioIds.has(t.id)||(t.exercises.length&&cardioExIds.has(t.exercises[0].exerciseId)))cardio.push(t);
+    else if(coreIds.has(t.id))core.push(t);
+    else strength.push(t);
+  });
+  function tplCard(t,ico){
+    return '<div class="template-card glass" onclick="startFromTemplate(\''+t.id+'\')">'
+      +'<h4>'+ico+' '+t.name+'</h4>'
+      +'<p>'+t.exercises.map(function(e){return e.name;}).join(', ')+'</p>'
+      +'<div class="template-count">'+t.exercises.length+' exercises</div></div>';
+  }
+  var html='';
+  if(strength.length){html+='<div style="grid-column:1/-1;font-size:.7rem;font-weight:700;color:var(--cyan);letter-spacing:.08em;margin-top:4px;opacity:.7">🏋️ STRENGTH</div>';html+=strength.map(function(t){return tplCard(t,'🏋️');}).join('');}
+  if(core.length){html+='<div style="grid-column:1/-1;font-size:.7rem;font-weight:700;color:var(--green);letter-spacing:.08em;margin-top:10px;opacity:.7">🧘 CORE</div>';html+=core.map(function(t){return tplCard(t,'🧘');}).join('');}
+  if(cardio.length){html+='<div style="grid-column:1/-1;font-size:.7rem;font-weight:700;color:var(--amber);letter-spacing:.08em;margin-top:10px;opacity:.7">🏃 CARDIO</div>';html+=cardio.map(function(t){return tplCard(t,'🏃');}).join('');}
+  document.getElementById('templateGrid').innerHTML=html;
 }
 function addTemplateExercise(){templateExercises.push({exerciseId:'',name:'',sets:3});renderTemplateExList()}
 function renderTemplateExList(){
@@ -1548,7 +1639,7 @@ function saveTemplate(){
 // ══════════════════════════════════════════
 function renderRecovery(){
   const workouts=getWorkouts();const now=Date.now();
-  const recoveryHours={Chest:72,Back:72,Shoulders:48,Arms:48,Legs:72,Core:48};
+  const recoveryHours={Chest:72,Back:72,Shoulders:48,Arms:48,Legs:72,Core:48,Cardio:24};
   const lastTrained={};
   workouts.forEach(w=>{const d=new Date(w.date).getTime();
     w.exercises.forEach(ex=>{if(!lastTrained[ex.muscle]||d>lastTrained[ex.muscle])lastTrained[ex.muscle]=d})});
