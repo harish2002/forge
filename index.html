@@ -1284,19 +1284,30 @@ function renderExercises(){
     card.className='exercise-card glass';
     card.style.animationDelay=(ei*0.04)+'s';
     let superBadge=ex.supersetWith!==null?'<span class="superset-badge">SS</span>':'';
-    let setsHtml='<div class="set-header"><span>#</span><span>PREV</span><span>KG</span><span>REPS</span><span>RPE</span><span></span></div>';
+    const isPlates = ex.weightUnit === 'plates';
+    const unitLabel = isPlates ? 'PLT' : 'KG';
+    const unitColor = isPlates ? 'var(--amber)' : 'var(--cyan)';
+    let setsHtml=`<div class="set-header"><span>#</span><span>PREV</span>
+      <button onclick="toggleWeightUnit(${ei})" style="font-size:.6rem;font-weight:800;letter-spacing:.08em;
+        padding:3px 8px;border-radius:10px;background:${isPlates?'var(--amber-dim)':'var(--cyan-dim)'};
+        color:${unitColor};border:1px solid ${isPlates?'rgba(255,195,64,.2)':'rgba(0,212,255,.2)'};
+        cursor:pointer;transition:all .2s;white-space:nowrap" title="Tap to switch unit">${unitLabel} ⇄</button>
+      <span>REPS</span><span>RPE</span><span></span></div>`;
     ex.sets.forEach((s,si)=>{
       const prevSet=prev&&prev[si]?prev[si]:null;
-      const prevStr=prevSet?`${prevSet.weight}x${prevSet.reps}`:'--';
-      const wImproved=prevSet&&s.done&&parseFloat(s.weight)>parseFloat(prevSet.weight);
-      const rImproved=prevSet&&s.done&&parseFloat(s.reps)>parseFloat(prevSet.reps)&&parseFloat(s.weight)>=parseFloat(prevSet.weight);
-      if(s.done&&!s.isWarmup){completedSets++;totalVol+=(parseFloat(s.weight)||0)*(parseFloat(s.reps)||0)}
+      const prevUnit=prevSet?.weightUnit==='plates'?'PLT':'';
+      const prevStr=prevSet?(prevUnit?`${prevSet.weight}PLT×${prevSet.reps}`:`${prevSet.weight}×${prevSet.reps}`):'--';
+      const wImproved=!isPlates&&prevSet&&s.done&&parseFloat(s.weight)>parseFloat(prevSet.weight);
+      const rImproved=prevSet&&s.done&&parseFloat(s.reps)>parseFloat(prevSet.reps)&&(isPlates||parseFloat(s.weight)>=parseFloat(prevSet.weight));
+      if(s.done&&!s.isWarmup){completedSets++;if(!isPlates)totalVol+=(parseFloat(s.weight)||0)*(parseFloat(s.reps)||0)}
       const warmupCls=s.isWarmup?' style="opacity:.6"':'';
       setsHtml+=`<div class="set-row"${warmupCls}>
         <span class="set-num">${s.isWarmup?'W':si+1}</span>
-        <span style="font-size:.65rem;color:var(--text-2);text-align:center;font-family:var(--font-mono)">${prevStr}</span>
-        <input type="number" class="set-input ${wImproved?'improved':''}" value="${s.weight}" placeholder="0"
-          onchange="updateSet(${ei},${si},'weight',this.value)" inputmode="decimal">
+        <span style="font-size:.62rem;color:var(--text-2);text-align:center;font-family:var(--font-mono);line-height:1.2">${prevStr}</span>
+        <input type="number" class="set-input ${wImproved?'improved':''}" value="${s.weight}"
+          placeholder="${isPlates?'# PLT':'0'}"
+          style="${isPlates?'color:var(--amber);border-color:rgba(255,195,64,.25)':''}"
+          onchange="updateSet(${ei},${si},'weight',this.value)" inputmode="${isPlates?'numeric':'decimal'}">
         <input type="number" class="set-input ${rImproved?'improved':''}" value="${s.reps}" placeholder="0"
           onchange="updateSet(${ei},${si},'reps',this.value)" inputmode="numeric">
         <select class="rpe-select" onchange="updateSet(${ei},${si},'rpe',this.value)">
@@ -1336,6 +1347,13 @@ function renderExercises(){
 }
 
 function updateSet(ei,si,field,val){currentWorkout.exercises[ei].sets[si][field]=val}
+function toggleWeightUnit(ei){
+  const ex=currentWorkout.exercises[ei];
+  ex.weightUnit=ex.weightUnit==='plates'?'kg':'plates';
+  // stamp every set so history knows which unit was used
+  ex.sets.forEach(s=>s.weightUnit=ex.weightUnit);
+  renderExercises();
+}
 function completeSet(ei,si){
   const s=currentWorkout.exercises[ei].sets[si];s.done=!s.done;
   if(s.done){const st=getSettings();if(st.autoTimer)startRestTimer(st.defaultRest||90,currentWorkout.exercises[ei].name)}
@@ -1688,7 +1706,7 @@ function showWorkoutDetail(wId){
       const rpe=s.rpe?` <span style="color:var(--amber);font-size:.72rem">@${s.rpe}</span>`:'';
       html+=`<div style="display:flex;gap:10px;padding:3px 0;font-size:.82rem;color:var(--text-1)">
         <span style="color:var(--text-2);width:18px;font-size:.75rem">${i+1}</span>
-        <span style="font-family:var(--font-mono)">${s.weight} kg x ${s.reps}${rpe}</span>${pr}${wu}
+        <span style="font-family:var(--font-mono);${s.weightUnit==='plates'?'color:var(--amber)':''}">${s.weight} ${s.weightUnit==='plates'?'PLT':'kg'} x ${s.reps}${rpe}</span>${pr}${wu}
       </div>`;
     });html+=`</div>`;
   });
