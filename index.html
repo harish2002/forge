@@ -1101,7 +1101,8 @@ async function pullAll(){
 //  DATA LAYER
 // ══════════════════════════════════════════
 const LS={get(k,d=null){try{const v=localStorage.getItem('forge_'+k);return v?JSON.parse(v):d}catch{return d}},
-  set(k,v){localStorage.setItem('forge_'+k,JSON.stringify(v))},remove(k){localStorage.removeItem('forge_'+k)}};
+  set(k,v){try{localStorage.setItem('forge_'+k,JSON.stringify(v))}catch(e){console.warn('LS.set failed for key '+k,e)}},
+  remove(k){try{localStorage.removeItem('forge_'+k)}catch(e){console.warn('LS.remove failed for key '+k,e)}}};
 
 // Profile constants
 const PROFILE={age:23,weight:88,height:179,bmr:1889,
@@ -1254,20 +1255,28 @@ const BENCHMARKS=[
 
 function getExercises(){
   let e=LS.get('exercises');
-  if(!e){e=[...DEFAULT_EXERCISES];LS.set('exercises',e);return e}
+  if(!e||!Array.isArray(e)){e=[...DEFAULT_EXERCISES];LS.set('exercises',e);return e}
+  // Filter out any null/corrupt entries
+  e=e.filter(x=>x&&x.id);
   // Merge any new default exercises not yet in localStorage
-  const ids=new Set(e.map(x=>x.id));
-  const added=DEFAULT_EXERCISES.filter(x=>!ids.has(x.id));
-  if(added.length){e=[...e,...added];LS.set('exercises',e)}
+  try{
+    const ids=new Set(e.map(x=>x.id));
+    const added=DEFAULT_EXERCISES.filter(x=>!ids.has(x.id));
+    if(added.length){e=[...e,...added];LS.set('exercises',e)}
+  }catch(err){console.warn('getExercises migration error',err)}
   return e;
 }
 function getTemplates(){
   let t=LS.get('templates');
-  if(!t){t=[...DEFAULT_TEMPLATES];LS.set('templates',t);return t}
+  if(!t||!Array.isArray(t)){t=[...DEFAULT_TEMPLATES];LS.set('templates',t);return t}
+  // Filter out any null/corrupt entries
+  t=t.filter(x=>x&&x.id);
   // Merge any new default templates not yet in localStorage
-  const ids=new Set(t.map(x=>x.id));
-  const added=DEFAULT_TEMPLATES.filter(x=>!ids.has(x.id));
-  if(added.length){t=[...t,...added];LS.set('templates',t)}
+  try{
+    const ids=new Set(t.map(x=>x.id));
+    const added=DEFAULT_TEMPLATES.filter(x=>!ids.has(x.id));
+    if(added.length){t=[...t,...added];LS.set('templates',t)}
+  }catch(err){console.warn('getTemplates migration error',err)}
   return t;
 }
 function getWorkouts(){return LS.get('workouts',[])}
@@ -1312,10 +1321,13 @@ function startEmptyWorkout(){
 function startFromTemplate(tplId){
   const tpl=getTemplates().find(t=>t.id===tplId);if(!tpl)return;
   currentWorkout={id:Date.now().toString(),name:tpl.name,exercises:[],notes:''};
-  tpl.exercises.forEach(e=>{
-    const prev=getPreviousPerformance(e.exerciseId);const sets=[];
-    for(let i=0;i<e.sets;i++) sets.push({weight:prev&&prev[i]?prev[i].weight:'',reps:prev&&prev[i]?prev[i].reps:'',rpe:'',done:false,isWarmup:false,notes:''});
-    currentWorkout.exercises.push({exerciseId:e.exerciseId,name:e.name,muscle:getExMuscle(e.exerciseId),sets,supersetWith:null,notes:''});
+  (tpl.exercises||[]).forEach(e=>{
+    try{
+      const prev=getPreviousPerformance(e.exerciseId);const sets=[];
+      const setCount=typeof e.sets==='number'?e.sets:3;
+      for(let i=0;i<setCount;i++) sets.push({weight:prev&&prev[i]?prev[i].weight:'',reps:prev&&prev[i]?prev[i].reps:'',done:false,isWarmup:false,notes:''});
+      currentWorkout.exercises.push({exerciseId:e.exerciseId,name:e.name,muscle:getExMuscle(e.exerciseId)||'',sets,supersetWith:null,notes:'',weightUnit:'kg'});
+    }catch(err){console.warn('startFromTemplate exercise error',e.exerciseId,err)}
   });
   workoutStartTime=Date.now();startWorkoutTimer();showActiveWorkout();
 }
@@ -1338,6 +1350,7 @@ function renderExercises(){
   const list=document.getElementById('exerciseList');list.innerHTML='';
   let completedSets=0,totalVol=0,prCount=0;
   currentWorkout.exercises.forEach((ex,ei)=>{
+    try{
     const prev=getPreviousPerformance(ex.exerciseId);
     const card=document.createElement('div');
     card.className='exercise-card glass';
@@ -1412,6 +1425,7 @@ function renderExercises(){
       <textarea class="input" style="display:${ex.notes?'block':'none'};margin-top:6px;font-size:.78rem" placeholder="Exercise notes..."
         id="exNote${ei}" onchange="updateExNote(${ei},this.value)">${ex.notes||''}</textarea>`;
     list.appendChild(card);
+    }catch(err){console.error('renderExercises error for exercise',ei,ex?.name,err)}
   });
   document.getElementById('wkExCount').textContent=currentWorkout.exercises.length;
   document.getElementById('wkSetCount').textContent=completedSets;
@@ -2077,8 +2091,29 @@ function renderStartScreen(){
 // ══════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════
+function runMigrations(){
+  // v2: added Cardio muscle group + Core/Cardio templates
+  const APP_VERSION='v2';
+  if(LS.get('appVersion')===APP_VERSION)return;
+  // Force-merge new default exercises (safe: only adds, never removes)
+  const e=LS.get('exercises');
+  if(e&&Array.isArray(e)){
+    const ids=new Set(e.filter(x=>x&&x.id).map(x=>x.id));
+    const toAdd=DEFAULT_EXERCISES.filter(x=>!ids.has(x.id));
+    if(toAdd.length){LS.set('exercises',[...e.filter(x=>x&&x.id),...toAdd])}
+  }
+  // Force-merge new default templates (safe: only adds, never removes)
+  const t=LS.get('templates');
+  if(t&&Array.isArray(t)){
+    const ids=new Set(t.filter(x=>x&&x.id).map(x=>x.id));
+    const toAdd=DEFAULT_TEMPLATES.filter(x=>!ids.has(x.id));
+    if(toAdd.length){LS.set('templates',[...t.filter(x=>x&&x.id),...toAdd])}
+  }
+  LS.set('appVersion',APP_VERSION);
+}
 function init(){
   const s=getSettings();document.documentElement.dataset.theme=s.darkMode!==false?'dark':'light';
+  runMigrations();
   renderStartScreen();
 }
 init();
